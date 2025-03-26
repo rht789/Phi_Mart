@@ -1,0 +1,199 @@
+19 Introduction to Django REST Framework and Project Setup
+
+19.1 Intro to DRF
+Till now we have only dont the project using MVT Format, but in modern apps the backend and frontend part is being done separately hence we use different frameworks on frontend and do the backend with Django, but to connect it we need API which we will understand through DRF
+
+19.2 PhiMart Requirement Analysis
+Phimart will be the project name that we will are going to make through DRF, now to make this project we will need a clear understanding of the project hence we would need to document everything, during our task management project we have seen if we needed to change our database if certain things are complex then we would face a huge problem where the final solution is to reset the database, so in this documentation we would document the endpoints, model and their relationship clearly so both backend and frontend developers understand this, also endpoints are actually api link which will lead us to related backend functionality based on request method which are HTTP Method like POST, GET, DELETE, PATCH etc.
+
+19.3 Setup Project
+So in this step we will setup the project, so at first we will create the django_env:
+python -m venv .phi_env
+
+here the . will make the folder hidden as its a good practice, then we will activate it in terminal by .phi_env/Scripts/Activate 
+then will install Django by pip and also upgrade pip to latest version, then 
+we will make the main directory by django-admin startproject phi_mart .
+then we will create the apps needed for this project, in our case which are users, order, product and api for common components, we nstalled this by django-admin startapp <appname>
+then we need to put these in installed app in settings.py
+
+now from https://www.django-rest-framework.org/ we would see the installation, so at first we need to install in venv by pip command which is pip install djangorestframework then put it on installed app in settings.py 'rest_framework', next in urls.py we will need to write path('api-auth/', include('rest_framework.urls')) and finally generate a requirements.txt file by 
+pip freeze > requirements.py
+
+19.4 Customizing User Model With Email Based Authentication
+So we will create our custom user model where we will disable the username field from our base AbstractUser model, instead using email as default parameter to take while creating account,also rquired_fields were used in User model when username and password was must and and addition field like email was also put there so an user must needed and email also to provide, but since now we are only using email and pass no additional fields are required, so in users app:
+models.py:
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+# Create your models here.
+
+class User(AbstractUser):
+    username = None
+    email = models.EmailField(unique=True)
+    address = models.TextField(blank=True, null=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+
+    USERNAME_FIELD = 'email'  # Use email instead of username
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return self.email
+
+now as we changed default username_field and required_fields it wil conflicts with built in manager, In Django, a Manager is a class that provides the interface for querying the database (e.g., User.objects.all()). It’s like a bridge between your model and the database. so we will make our own custom manager for creating user and superuser, here is the code :
+manager.py:
+from django.contrib.auth.base_user import BaseUserManager
+
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('This Email field must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if not extra_fields.get('is_staff'):
+            raise ValueError('Superuser must have is_staff=True')
+        if not extra_fields.get('is_superuser'):
+            raise ValueError('Superuser must have is_superuser = True')
+
+        return self.create_user(email, password, **extra_fields)
+
+here email = self.normalize_email(email): This is a helper method from BaseUserManager that standardizes the email address (e.g., converts it to lowercase and removes unnecessary whitespace). For example, ExAmPlE@GmAiL.com becomes example@gmail.com.
+user = self.model(email=email, **extra_fields): Creates an instance of the user model (e.g., your User class). self.model refers to the model this manager is attached to (set later with objects = CustomUserManager()). The email and any extra_fields are passed to initialize the user object.
+user.set_password(password): Hashes the password (if provided) and sets it on the user object. This ensures the password is stored securely in the database (not as plain text).
+user.save(using=self._db): Saves the user to the database. self._db allows the manager to specify which database to use (useful in multi-database setups).
+
+now to  use this manager in our user we need to specify it in our models:
+class User(AbstractUser):
+    username = None
+    email = models.EmailField(unique=True)
+    address = models.TextField(blank=True, null=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+
+    USERNAME_FIELD = 'email'  # Use email instead of username
+    REQUIRED_FIELDS = []
+    
+    objects=CustomUserManager()
+
+    def __str__(self):
+        return self.email
+and finally in admin.py we need to customize the admin view :
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from users.models import User
+
+# Register your models here.
+
+class CustomUserAdmin(UserAdmin):
+    model = User
+    list_display = ('email', 'first_name', 'last_name', 'is_active')
+    list_filter = ('is_staff', 'is_active')
+
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Personal Info', {'fields': ('first_name',
+         'last_name', 'address', 'phone_number')}),
+        ('Permissions', {'fields': ('is_staff', 'is_active',
+         'is_superuser', 'groups', 'user_permissions')}),
+        ('Important Dates', {'fields': ('last_login', 'date_joined')})
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active')
+        }),
+    )
+    search_fields = ('email',)
+    ordering = ('email',)
+
+admin.site.register(User, CustomUserAdmin)
+
+also before migrating in settings.py we need to specify our user model
+AUTH_USER_MODEL="users.User"
+
+19.5 Creating Necessary Models
+So lets create other necessary models, at first in product app's models.py:
+from django.db import models
+
+# Create your models here.
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField()
+    image = models.ImageField(
+        upload_to="products/images/", blank=True, null=True)
+    category = models.ForeignKey(
+        Category, on_delete=models.CASCADE, related_name="products")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+then in order's models.py:
+from django.db import models
+from users.models import User
+from product.models import Product
+# Create your models here.
+
+class Cart(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="cart")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Cart of {self.user.username}"
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(
+        Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
+class Order(models.Model):
+    PENDING = 'Pending'
+    SHIPPED = 'Shipped'
+    DELIVERED = 'Delivered'
+    STATUS_CHOICES = [
+        (PENDING, 'Pending'),
+        (SHIPPED, 'Shipped'),
+        (DELIVERED, 'Delivered'),
+    ]
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="orders")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Order {self.id} by {self.user.username}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
+and for now we are using Django SQLite model which can be viewed by an extensions named SQLite
