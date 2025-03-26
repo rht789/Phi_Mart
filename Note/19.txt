@@ -197,3 +197,44 @@ class OrderItem(models.Model):
         return f"{self.quantity} x {self.product.name}"
 
 and for now we are using Django SQLite model which can be viewed by an extensions named SQLite
+
+19.6 Setup Debug Toolbar & Add Dummy Data Using Fixtures
+from https://django-debug-toolbar.readthedocs.io/en/latest/installation.html we followed every instruction and installed django toolbar, now previously we generated data by python faker, now we will use fixtures, where a json file will consist all the data in json format and we will load those in our db, so for this we created a folder named fixtures, and inside it a file named product_data.json and pasted the all data, now as the datas are too large I'm not showing all rather few examples:
+[
+  {
+    "model": "product.category",
+    "pk": 1,
+    "fields": {
+      "name": "Electronics",
+      "description": "Devices and gadgets"
+    }
+  },
+  {
+    "model": "product.category",
+    "pk": 2,
+    "fields": {
+      "name": "Fashion",
+      "description": "Clothing and accessories"
+    }
+  },
+  {
+    "model": "product.category",
+    "pk": 3,
+    "fields": {
+      "name": "Home Appliances",
+      "description": "Appliances for home use"
+    }
+  },
+  {
+    "model": "product.category",
+    "pk": 4,
+    "fields": {
+      "name": "Books",
+      "description": "Books and educational materials"
+    }
+  }
+]
+
+aand then in terminal we will write this command, 
+python manage.py loaddata fixtures/product_data.json
+doing this will generate all the data to database
