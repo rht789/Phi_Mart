@@ -1,0 +1,78 @@
+20 Serializers and API View
+20.1 API Naming Convention
+Naming api is important in web developing, till now before drf we have wrote the urls as we wish but now we need to maintain some rules while naming, so for this if an app have multiple urls, for example our product app has product and category models, so for this whole app we might register this as products in root urls.py but when we will try to view categories it will look like products/categories which is not a great naming convention, to overcome this, we have registered our api urls in root urls.py and both pproduct and category related in api apps urls, so in root urls.py:
+
+from django.contrib import admin
+from django.urls import path,include
+from debug_toolbar.toolbar import debug_toolbar_urls
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path('api-auth/', include('rest_framework.urls')),
+    path('api/v1/', include('api.urls'))
+]+ debug_toolbar_urls()
+
+then api apps urls.py:
+from django.urls import path,include
+
+urlpatterns = [
+    path('products/', include("product.product_urls")),
+    path('categories/', include("product.category_urls"))
+]
+
+andin product app we would create 2 urls, one for product another for category:
+category_urls.py:
+from django.urls import path
+from product import views
+
+urlpatterns=[
+    path('', views.view_categories, name='category-list')
+]
+
+product_urls.py:
+from django.urls import path
+from product import views
+
+urlpatterns=[
+    path('', views.view_products, name='product-list')
+]
+
+and for views we would use rest frame work components, Response is same as HttpResponse but works well with api_view, api view is a decorator , which helps us view the data in a very formal rest framework way where we can also convert the data in json view which is being passed from views.py so here is the views.py:
+from django.shortcuts import render
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+
+# Create your views here.
+@api_view()
+def view_products(request):
+    return Response({'message':'okay'})
+
+@api_view()
+def view_categories(request):
+    return Response({'message':'okay'})
+20.2 Introduction to get_object_or_404get
+Now if an object is not available and we don't handle it well it will shown an objectdoesnotexist error,but inapi building this does not look great for code readability so might write something like this :
+from rest_framework.response import Response
+from rest_framework import status
+
+def view_specific_product(request, id):
+    try:
+        product = Product.objects.get(pk=id)
+        product_dict = {
+            'id': product.id,
+            'name': product.name,
+            'price': product.price
+        }
+        return Response(product_dict)
+    except Product.DoesNotExist:
+        return Response(
+            {'message': 'Product does not exists'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+so this way if a code is not found then it will show a 404 not found error on rest frame work view with status code, but this can easily be done by get_objeect_or_404 method, here how we could have done it :
+@api_view()
+def view_specific_products(request,id):
+    product=get_object_or_404(Product, pk=id)
+    product_dict={"id":product.id, "name":product.name, "price":product.price}
+    return Response(product_dict)
+so if an object is not found then it will automatically show a 404 error
