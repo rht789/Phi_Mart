@@ -76,3 +76,28 @@ def view_specific_products(request,id):
     product_dict={"id":product.id, "name":product.name, "price":product.price}
     return Response(product_dict)
 so if an object is not found then it will automatically show a 404 error
+
+20.3 Django Serializer
+Serializers are a way to convert you model data type to json or xml, its functionalty are similar to Django forms. so in our view sending the data by naming id, name, price etc are not suggested, hence we will use serializers to show our product data, so we will create a file named serializers.py and then based on the data we want to show would write them with  their appropriate feld name matching in models:
+from rest_framework import serializers
+from product.models import Product,Category
+from decimal import Decimal
+
+class ProductSerializer(serializers.Serializer):
+    id=serializers.IntegerField()
+    name=serializers.CharField()
+    unit_price=serializers.DecimalField(max_digits=10, decimal_places=2, source='price')
+    
+    price_with_tax=serializers.SerializerMethodField(method_name='calculate_tax')
+    
+    def calculate_tax(self,product):
+        return round(product.price * Decimal(1.1),2)
+
+okay now here id and name has followed the same models pattern but their is no field named unit_price exits so to make our custom fieldname we would simply put source attribute with real fieldname, then what if we could have known the price with tax, to do tthat we would do the calculation on a function and put that function SerializerMethodField as method_name attribute's value.
+and then in views.py:
+@api_view()
+def view_specific_products(request,id):
+    product=get_object_or_404(Product, pk=id)
+    serializer=ProductSerializer(product)
+    return Response(serializer.data)
+now her we passing the data to serializer which will map the product to the serializer field we defined, .data is where we will actually get the field name with value as dictionary format
